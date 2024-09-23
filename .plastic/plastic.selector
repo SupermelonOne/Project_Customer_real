@@ -1,0 +1,4 @@
+repository "Project_Customer@P_Customer@cloud"
+  path "/"
+    br "/main"
+    co "/main"
