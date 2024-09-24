@@ -136,7 +136,7 @@ public class PlayerController : MonoBehaviour
         #endregion
 
         #region Sprinting
-        Debug.Log("my stamina is: " + stamina);
+        //Debug.Log("my stamina is: " + stamina);
         if (Input.GetKey(sprintKey) && !crouchMode && stamina > 0 && allowSprint && isMoving())
         {
             if (moveSpeed < sprintSpeed)
