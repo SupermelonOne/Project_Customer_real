@@ -7,14 +7,12 @@ using UnityEngine.Events;
 
 public class ButtonScript : MonoBehaviour
 {
-    private PlayerController player;
-    public float requiredDistance = 5f;
+    public float requiredDistance = 3f;
+    public string displayText = "press 'E' to activate";
     public KeyCode buttonPress = KeyCode.E;
-    public UnityEvent activation;
-    public GameObject prefab;
+    private PlayerController player;
+    public UnityEvent action;
     public GameObject popup;
-    private bool prefabExists = false;
-
     private bool functional = false;
 
 
@@ -22,20 +20,32 @@ public class ButtonScript : MonoBehaviour
     void Start()
     {
         player = Object.FindObjectOfType<PlayerController>();
+        if (player == null)
+        {
+            Debug.Log("I FAILED");
+            functional = false;
+        }
+        else
+        {
+            functional = true;
+            Debug.Log("I'm placing smthng but nothing");
+            popup = Instantiate(popup, Vector3.zero, Quaternion.identity, transform);
+            popup.SetActive(false);
+        }
 
     }
 
     // Update is called once per frame
     void Update()
     {
-
+        Debug.Log(Vector3.Distance(transform.position, player.transform.position));
         if (functional && Vector3.Distance(transform.position, player.transform.position) < requiredDistance)
         {
             if (Input.GetKeyDown(buttonPress))
             {
-                activation.Invoke();
+                action.Invoke();
             }
-            CreatePopUp(new Vector3(0, 5f, 0), "press 'E' to activate");
+            CreatePopUp(new Vector3(0,2,0), displayText);
         }
         else
         {
@@ -45,13 +55,11 @@ public class ButtonScript : MonoBehaviour
 
     public void CreatePopUp(Vector3 position, string text)
     {
-        //Vector3 vec = new Vector3(0, position.y, 0) + position.x * transform.right + position.z * transform.forward;
+        Debug.Log("Im running the CreatePopUp");
         popup.SetActive(true);
         popup.transform.localPosition = position;
-        var temp = popup.transform.GetChild(0).GetComponent<TextMeshProUGUI>(); 
+        var temp = popup.transform.GetChild(1).GetComponent<TextMeshProUGUI>(); 
         temp.text = text;
-
-        prefabExists = true;
     }
 
 }

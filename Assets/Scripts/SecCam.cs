@@ -56,7 +56,7 @@ public class SecCam : MonoBehaviour
         {
             Gizmos.color = meshcolor;
             Vector3 newPos = new Vector3(transform.position.x, transform.position.y -5, transform.position.z);
-            //Gizmos.DrawMesh(mesh, newPos, transform.rotation);
+            Gizmos.DrawMesh(mesh, newPos, transform.rotation);
         }
 
         Gizmos.DrawWireSphere(transform.position, distance);
@@ -227,7 +227,7 @@ public class SecCam : MonoBehaviour
         }
         //Debug.Log("detected pplayer in height");
 
-        direction.y = 0;
+       // direction.y = 0;
         float deltaAngle = Vector3.Angle(direction, transform.forward);
         if (deltaAngle > angle)
         {

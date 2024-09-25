@@ -39,28 +39,27 @@ public class MovePlatform : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        if (activated)
-        {
-            if (time < moveTime && moveForward)
-            {
-                time += Time.deltaTime;
-            }
-            else if (moveForward)
-            {
-                moveForward = false;
-            }
-            if (time > 0 && !moveForward)
-            {
-                time -= Time.deltaTime;
-            }
-            else if (!moveForward)
-            {
-                moveForward = true;
-            }
-            //Debug.Log(time);
 
-            //rb.AddForce(new Vector3(0.1f, 0, 0));
-            transform.position = new Vector3(xStart + getValue(time / moveTime) * xDistance, yStart + getValue(time / moveTime) * yDistance, zStart + getValue(time / moveTime) * zDistance);
+        if (time < moveTime && moveForward)
+        {
+            time += Time.deltaTime;
         }
+        else if (moveForward && activated)
+        {
+            moveForward = false;
+        }
+        if (time > 0 && !moveForward)
+        {
+            time -= Time.deltaTime;
+        }
+        else if (!moveForward && activated)
+        {
+            moveForward = true;
+        }
+        //Debug.Log(time);
+
+        //rb.AddForce(new Vector3(0.1f, 0, 0));
+        transform.position = new Vector3(xStart + getValue(time / moveTime) * xDistance, yStart + getValue(time / moveTime) * yDistance, zStart + getValue(time / moveTime) * zDistance);
+        
     }
 }

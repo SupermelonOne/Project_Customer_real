@@ -1,20 +1,9 @@
 using System.Collections.Generic;
 using UnityEngine;
-using System.Collections;
-using Unity.VisualScripting;
-using UnityEditor;
-
-using System.Threading;
-using UnityEngine.XR;
 using UnityEngine.Events;
 using System.Linq;
-using static UnityEngine.UI.Image;
-using Unity.VisualScripting.Dependencies.Sqlite;
-using System;
-using static UnityEditor.Progress;
 using UnityEngine.SceneManagement;
 using UnityEngine.AI;
-using UnityEngine.UIElements;
 
 public class Guard : MonoBehaviour
 {
@@ -27,28 +16,29 @@ public class Guard : MonoBehaviour
     private Vector3 lastPlayerLocation   = Vector3.zero;
     private Vector3 closestPoint         = Vector3.zero;
 
-    public bool childFound               = false;
-    public bool goToLastPlace            = false;
-    public bool spinning                 = false;
-    public bool goBackToPos              = false;
-    public bool alarm;
-
     private float totalRotation = 0f;
     private float scanInterval;
     private float scanTimer;
 
+    private bool lookingLeft = false;
+    private bool lookingRight = false;
+    private bool checkingArea = false;
+    private bool PrimeCheckPoints = true;
+    private bool checkable;
+
     private int count;
-    private int walkCount;
-    private int childDelay = 10;
     private int placesNormal;
+
     private Collider[] colliders = new Collider[50];
     private List<Vector3> rotatePoints = new List<Vector3>();
     private List<Vector3> lastPath = new List<Vector3>();
+    private List<Vector3> checkNodesList = new List<Vector3>();
     private List<GameObject> objInSight = new List<GameObject>();
+    private float random;
 
 
     //-------------------------------------------//
-
+    
     public float speed;
     public float spinSpeed;
     public float distance = 10;
@@ -57,7 +47,9 @@ public class Guard : MonoBehaviour
 
     public int scanFr = 30;
     public int rotatepoints = 4;
+    public int checkNodes = 2;
 
+    [Header("rotatePoints")]
     public Vector3 rotatePoint1;
     public Vector3 rotatePoint2;
     public Vector3 rotatePoint3;
@@ -66,8 +58,17 @@ public class Guard : MonoBehaviour
     public Vector3 rotatePoint6;
     public Vector3 rotatePoint7;
 
+    [Header("Points of interest")]
+    public Vector3 checkPoint1;
+    public Vector3 checkPoint2;
+    public Vector3 checkPoint3;
+    public Vector3 checkPoint4;
+    public Vector3 checkPoint5;
+    public Vector3 checkPoint6;
+    public Vector3 checkPoint7;
 
-    public UnityEngine.Color meshcolor = UnityEngine.Color.blue;
+    [Header("rest")]
+    public Color meshcolor = Color.blue;
 
     public LayerMask layers;
     public LayerMask occlusionLayers;    
@@ -75,8 +76,17 @@ public class Guard : MonoBehaviour
 
     public NavMeshAgent agent;
 
+    [HideInInspector]
+    public bool childFound = false;
+    public bool goToLastPlace = false;
+    public bool spinning = false;
+    public bool goBackToPos = false;
+    public bool alarm;
+    private Vector3 startEuler;
+    private Vector3 currentNode;
 
-    void Start()
+
+    private void Start()
     {
         rb = GetComponent<Rigidbody>();
 
@@ -89,11 +99,26 @@ public class Guard : MonoBehaviour
         if (rotatepoints >= 6) rotatePoints.Add(rotatePoint6);
         if (rotatepoints >= 7) rotatePoints.Add(rotatePoint7);
 
+        if (checkNodes >= 1) checkNodesList.Add(checkPoint1);
+        if (checkNodes >= 2) checkNodesList.Add(checkPoint2);
+        if (checkNodes >= 3) checkNodesList.Add(checkPoint3);
+        if (checkNodes >= 4) checkNodesList.Add(checkPoint4);
+        if (checkNodes >= 5) checkNodesList.Add(checkPoint5);
+        if (checkNodes >= 6) checkNodesList.Add(checkPoint6);
+        if (checkNodes >= 7) checkNodesList.Add(checkPoint7);
+
         for (int i = 0; i < rotatePoints.Count; i++)
         {
             var point = rotatePoints[i];
             point.y = this.transform.position.y;
             rotatePoints[i] = point; // Set the updated point back to the list
+        }
+
+        for (int i = 0; i < checkNodesList.Count; i++)
+        {
+            var point = checkNodesList[i];
+            point.y = transform.position.y;
+            checkNodesList[i] = point; // Set the updated point back to the list
         }
 
         if (rotatePoints.Count > 0)
@@ -123,6 +148,16 @@ public class Guard : MonoBehaviour
         if (rotatepoints >= 6) Gizmos.DrawLine(rotatePoint5, rotatePoint6);
         if (rotatepoints >= 7) Gizmos.DrawLine(rotatePoint6, rotatePoint7);
 
+
+        Gizmos.color = Color.magenta;
+        if (checkNodes >= 1) Gizmos.DrawSphere(checkPoint1, 1);
+        if (checkNodes >= 2) Gizmos.DrawSphere(checkPoint2, 1);
+        if (checkNodes >= 3) Gizmos.DrawSphere(checkPoint3, 1);
+        if (checkNodes >= 4) Gizmos.DrawSphere(checkPoint4, 1);
+        if (checkNodes >= 5) Gizmos.DrawSphere(checkPoint5, 1);
+        if (checkNodes >= 6) Gizmos.DrawSphere(checkPoint6, 1);
+        if (checkNodes >= 7) Gizmos.DrawSphere(checkPoint7, 1);
+
         if (mesh)
         {
             Gizmos.color = meshcolor;
@@ -147,40 +182,56 @@ public class Guard : MonoBehaviour
         }
     }
 
-    // Update is called once per frame
-    void Update()
+    private void Update()
     {
-        Debug.Log(agent.destination);
-        
+        WalkingHandler();
+        PlayerDetectionHandler();
+        CheckPointHandler();
+    }
 
-        if (childFound)
+    private void CheckPointHandler()
+    {
+        if (checkable)
         {
-            ChaseChild();
+            random = Random.Range(0,2);
+            Debug.Log(random);
         }
-        else if (goToLastPlace)
+
+        if (PrimeCheckPoints)
         {
-            GoToLastPlayerPosition();
-        }
-        else if (spinning)
-        {
-            Survey();
-        } 
-        else if (goBackToPos)
-        {
-            BackToPath();
-        }
-        else if (!alarm)
-        {
-            GoToClosest();
-            WalkNormal(speed);
+            checkable = true;
+            foreach (Vector3 checkPoint in checkNodesList)
+            {                                  
+                if (Vector3.Distance(transform.position, checkPoint) < 1f)
+                {
+                    if (random == 0)
+                    {
+                        lookingLeft = true;
+                        lookingRight = true;
+                    }
+                    PrimeCheckPoints = false;
+                    checkingArea = true;
+                    currentNode = checkPoint;
+                    break;
+                }                 
+            }
         }
         else
         {
-            CameraResponse(closestPoint);
+            checkable = false;
+            if (Vector3.Distance(transform.position, currentNode) > 1.1f)
+            {
+                PrimeCheckPoints = true;
+                lookingLeft = false;
+                lookingRight = false;
+                
+            }
+            
         }
+    }
 
-     
-
+    private void PlayerDetectionHandler()
+    {
         scanTimer -= Time.deltaTime;
         if (scanTimer < 0)
         {
@@ -204,18 +255,87 @@ public class Guard : MonoBehaviour
         }
     }
 
+    private void WalkingHandler()
+    {
+
+        if (childFound)
+        {
+            ChaseChild();
+        }
+        else if (goToLastPlace)
+        {
+            GoToLastPlayerPosition();
+        }
+        else if (spinning)
+        {
+            Survey();
+        }
+        else if (goBackToPos)
+        {
+            BackToPath();
+        }
+        else if (checkingArea)
+        {
+            Check();
+        }
+        else if (!alarm)
+        {
+            GoToClosest();
+            WalkNormal(speed);
+            startEuler = transform.eulerAngles;
+        }
+        else
+        {
+            CameraResponse(closestPoint);
+        }
+    }
+
+    // © Hilfer inc. All rights reserved
+    private void Check()
+    {
+        agent.isStopped = true;
+        Vector3 targetEuler = startEuler;
+        if (!lookingLeft)
+            targetEuler.y += 90;
+        else if (!lookingRight) 
+            targetEuler.y -= 90;
+        targetEuler.y = targetEuler.y % 360;
+
+
+        if(Mathf.Abs(targetEuler.y - transform.eulerAngles.y) < 1)
+        {
+            if (!lookingLeft)
+            {
+                lookingLeft = true;
+            }
+            else
+            {
+                lookingRight = true;
+                checkingArea = false;
+                agent.isStopped = false;
+                return;
+
+            }
+        }
+
+        transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.Euler(targetEuler), Time.deltaTime * 3);
+            
+    }
+
     private void Survey()
     {
         goBackToPos = false;
         if (spinning)
         {
             rb.velocity = Vector3.zero;
+            
 
             // Calculate how much to rotate this frame
             float rotationThisFrame = spinSpeed * Time.deltaTime;
 
             // Apply the rotation to the Rigidbody
             rb.rotation *= Quaternion.Euler(0, rotationThisFrame, 0);
+            
 
             // Accumulate the total rotation
             totalRotation += rotationThisFrame;
@@ -247,6 +367,7 @@ public class Guard : MonoBehaviour
                 OnPlayerLost.Invoke();
                 alarm = false;
                 spinning = false;  // Stop spinning
+                
                 if (lastPath.Count > 0)
                 {
                     goBackToPos = true;
@@ -284,14 +405,11 @@ public class Guard : MonoBehaviour
         }
     }
 
-
-
     private void ChaseChild()
     {
         agent.SetDestination(child.transform.position);
         lastPlayerLocation = child.transform.position;
     }
-
 
     private void GoToLastPlayerPosition()
     {
@@ -304,76 +422,6 @@ public class Guard : MonoBehaviour
             spinning = true;
             goToLastPlace = false;
         }
-    }
-
-
-
-
-    Mesh CreateWedgeMesh()
-    {
-
-
-        Mesh mesh = new Mesh();
-
-        int numTriangles = 8;
-        int numVertices = numTriangles * 3;
-
-        Vector3[] verticles = new Vector3[numVertices];
-        int[] triangles = new int[numVertices];
-
-        Vector3 bottomCenter = Vector3.zero;
-        Vector3 bottomLeft = Quaternion.Euler(0, -angle, 0) * Vector3.forward * distance;
-        Vector3 bottomRight = Quaternion.Euler(0, angle, 0) * Vector3.forward * distance;
-
-
-        Vector3 topCenter = bottomCenter + Vector3.up * height;
-        Vector3 topLeft = bottomLeft + Vector3.up * height;
-        Vector3 topRight = bottomRight + Vector3.up * height;
-
-        int vert = 0;
-
-        verticles[vert++] = bottomCenter;
-        verticles[vert++] = bottomLeft;
-        verticles[vert++] = topLeft;
-
-        verticles[vert++] = topLeft;
-        verticles[vert++] = topCenter;
-        verticles[vert++] = bottomCenter;
-
-        verticles[vert++] = bottomCenter;
-        verticles[vert++] = topCenter;
-        verticles[vert++] = topRight;
-
-        verticles[vert++] = topRight;
-        verticles[vert++] = bottomRight;
-        verticles[vert++] = bottomCenter;
-
-        verticles[vert++] = bottomLeft;
-        verticles[vert++] = bottomRight;
-        verticles[vert++] = topRight;
-
-        verticles[vert++] = topRight;
-        verticles[vert++] = topRight;
-        verticles[vert++] = bottomLeft;
-
-        verticles[vert++] = topCenter;
-        verticles[vert++] = topLeft;
-        verticles[vert++] = topRight;
-
-        verticles[vert++] = bottomCenter;
-        verticles[vert++] = bottomRight;
-        verticles[vert++] = bottomLeft;
-
-        for (int i = 0; i < numVertices; i++)
-        {
-            triangles[i] = i;
-        }
-
-        mesh.vertices = verticles;
-        mesh.triangles = triangles;
-        mesh.RecalculateNormals();
-
-        return mesh;
     }
 
     private void OnValidate()
@@ -469,7 +517,6 @@ public class Guard : MonoBehaviour
         }
     }
 
-
     public void CameraResponse(Vector3 location)
     {
         alarm = true;
@@ -503,6 +550,70 @@ public class Guard : MonoBehaviour
 
     }
 
+    Mesh CreateWedgeMesh()
+    {
+        Mesh mesh = new Mesh();
+
+        int numTriangles = 8;
+        int numVertices = numTriangles * 3;
+
+        Vector3[] verticles = new Vector3[numVertices];
+        int[] triangles = new int[numVertices];
+
+        Vector3 bottomCenter = Vector3.zero;
+        Vector3 bottomLeft = Quaternion.Euler(0, -angle, 0) * Vector3.forward * distance;
+        Vector3 bottomRight = Quaternion.Euler(0, angle, 0) * Vector3.forward * distance;
+
+
+        Vector3 topCenter = bottomCenter + Vector3.up * height;
+        Vector3 topLeft = bottomLeft + Vector3.up * height;
+        Vector3 topRight = bottomRight + Vector3.up * height;
+
+        int vert = 0;
+
+        verticles[vert++] = bottomCenter;
+        verticles[vert++] = bottomLeft;
+        verticles[vert++] = topLeft;
+
+        verticles[vert++] = topLeft;
+        verticles[vert++] = topCenter;
+        verticles[vert++] = bottomCenter;
+
+        verticles[vert++] = bottomCenter;
+        verticles[vert++] = topCenter;
+        verticles[vert++] = topRight;
+
+        verticles[vert++] = topRight;
+        verticles[vert++] = bottomRight;
+        verticles[vert++] = bottomCenter;
+
+        verticles[vert++] = bottomLeft;
+        verticles[vert++] = bottomRight;
+        verticles[vert++] = topRight;
+
+        verticles[vert++] = topRight;
+        verticles[vert++] = topRight;
+        verticles[vert++] = bottomLeft;
+
+        verticles[vert++] = topCenter;
+        verticles[vert++] = topLeft;
+        verticles[vert++] = topRight;
+
+        verticles[vert++] = bottomCenter;
+        verticles[vert++] = bottomRight;
+        verticles[vert++] = bottomLeft;
+
+        for (int i = 0; i < numVertices; i++)
+        {
+            triangles[i] = i;
+        }
+
+        mesh.vertices = verticles;
+        mesh.triangles = triangles;
+        mesh.RecalculateNormals();
+
+        return mesh;
+    }
 }
 
 

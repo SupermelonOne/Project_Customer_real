@@ -15,7 +15,7 @@ public class Button : MonoBehaviour
     private Collider[] colliders = new Collider[50];
     private bool prefabExists = false;
     private bool pressedBool;
-    private GameObject popup;
+    public  GameObject popup;
 
     public UnityEngine.Color meshcolor;
     public List<GameObject> objInSight = new List<GameObject>();
@@ -25,6 +25,10 @@ public class Button : MonoBehaviour
     public static Button current;
     public GameObject prefab;
     public UnityEvent pressed;
+
+    public float hitBoxOffsetX;
+    public float hitBoxOffsetY;
+    public float hitBoxOffsetZ;
 
     public float popUpOffsetX;
     public float popUpOffsetY;
@@ -51,30 +55,35 @@ public class Button : MonoBehaviour
     {
         Scan();
 
-        if (objInSight.Count > 0 && !guard.spinning && !guard.childFound)
+        if (objInSight.Count > 0 /*&& !guard.spinning && !guard.childFound*/)
         {
-            Vector3 place = new Vector3(0, 0, -1.5f);
+            Vector3 place = new Vector3(0, 0, popUpOffsetZ);
             CreatePopUp(place, "press E to activate!");  
         } 
         
-        if((objInSight.Count <= 0 && popup != null) || guard.spinning || guard.childFound)
+        if((objInSight.Count <= 0 && popup != null) /*|| guard.spinning || guard.childFound*/)
         {
             popup.SetActive(false);
         }
 
+        CheckPressed();
 
+    }
+
+    void CheckPressed()
+    {
 
         if (objInSight.Count > 0 && Input.GetKey(key: KeyCode.E))
         {
             Debug.Log(holdTime);
-            holdTime+= .1f;
+            holdTime += .1f;
             popup.GetComponent<UnityEngine.UI.Slider>().value = holdTime;
-            if (holdTime >= 1) 
+            if (holdTime >= 1)
             {
                 pressed.Invoke();
                 Destroy(popup);
                 Destroy(this);
-            }             
+            }
         }
     }
 
@@ -89,7 +98,7 @@ public class Button : MonoBehaviour
         }
 
 
-        Vector3 scanSpace = new Vector3(transform.position.x, transform.position.y, transform.position.z + 4);
+        Vector3 scanSpace = transform.position + transform.forward * 4;
         Gizmos.DrawWireSphere(scanSpace, distance);
 
         for (int i = 0; i < count; i++)
@@ -112,6 +121,8 @@ public class Button : MonoBehaviour
 
     public void CreatePopUp(Vector3 position, string text)
     {
+        Debug.Log(popup);
+
         //Vector3 vec = new Vector3(0, position.y, 0) + position.x * transform.right + position.z * transform.forward;
         popup.SetActive(true);
         popup.transform.localPosition = position;
@@ -135,7 +146,7 @@ public class Button : MonoBehaviour
     {
         Vector3 scanSpace = transform.position + transform.forward * 4;
         count = Physics.OverlapSphereNonAlloc(scanSpace, distance, colliders, layers, QueryTriggerInteraction.Collide);
-
+        Debug.Log(count);
         objInSight.Clear();
         for (int i = 0; i < count; i++)
         {

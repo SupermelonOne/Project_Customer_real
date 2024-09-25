@@ -116,6 +116,7 @@ public class PlayerController : MonoBehaviour
 
     private void Update()
     {
+        //Debug.Log("is grounded rn is: " + isGrounded);
         #region Platform Velocity
 
         deltaPos = transform.position - oldPos;
